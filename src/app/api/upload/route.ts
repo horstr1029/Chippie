@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { PDFParse } from 'pdf-parse'
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 
@@ -55,14 +56,20 @@ export async function POST(request: NextRequest) {
 
   // Extract text from PDF
   let extractedText: string | null = null
+  let parseWarning: string | null = null
   if (isPdf) {
     try {
-      const { PDFParse } = await import('pdf-parse')
       const parser = new PDFParse({ data: new Uint8Array(buffer) })
       const result = await parser.getText()
-      extractedText = result.text
-    } catch {
-      // Non-fatal — test generation will note limited text
+      const trimmed = result.text?.trim() ?? ''
+      if (trimmed.length > 50) {
+        extractedText = result.text
+      } else {
+        parseWarning = 'This PDF appears to be a scanned image — no text could be extracted. Upload a text-based PDF to enable test generation.'
+      }
+    } catch (err) {
+      console.error('[upload] PDF parse error:', err)
+      parseWarning = 'Could not read text from this PDF. Make sure it is a text-based (not scanned) PDF.'
     }
   }
 
@@ -78,5 +85,5 @@ export async function POST(request: NextRequest) {
     },
   })
 
-  return NextResponse.json({ materialId: material.id })
+  return NextResponse.json({ materialId: material.id, parseWarning })
 }

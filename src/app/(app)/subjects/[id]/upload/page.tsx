@@ -21,6 +21,7 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState('')
+  const [warning, setWarning] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleModeSwitch(m: Mode) {
@@ -55,6 +56,13 @@ export default function UploadPage() {
     xhr.onload = () => {
       setLoading(false)
       if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const body = JSON.parse(xhr.responseText)
+          if (body.parseWarning) {
+            setWarning(body.parseWarning)
+            return // stay on page so user sees the warning
+          }
+        } catch { /* ignore */ }
         router.push(`/subjects/${id}`)
         router.refresh()
       } else {
@@ -152,6 +160,16 @@ export default function UploadPage() {
             </div>
           )}
 
+          {warning && (
+            <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: '#FFB83022' }}>
+              <p className="text-sm font-semibold" style={{ color: '#FFB830' }}>⚠️ PDF saved — but no text found</p>
+              <p className="text-xs" style={{ color: '#FFB830' }}>{warning}</p>
+              <button onClick={() => { router.push(`/subjects/${id}`); router.refresh() }}
+                className="text-xs font-semibold underline" style={{ color: '#FFB830' }}>
+                Go back to subject →
+              </button>
+            </div>
+          )}
           {error && (
             <p className="text-sm rounded-xl px-4 py-2" style={{ background: '#FF5C5C22', color: 'var(--highlight)' }}>
               {error}
