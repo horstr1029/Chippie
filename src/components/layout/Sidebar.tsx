@@ -56,7 +56,7 @@ export function Sidebar({ name, xp }: { name: string; xp: number }) {
           <span className="text-sm truncate" style={{ color: 'var(--text-muted)' }}>{name}</span>
           <div className="flex items-center gap-1">
             <ThemeToggle />
-            <button onClick={() => signOut({ callbackUrl: '/login' })}
+            <button onClick={() => signOut({ callbackUrl: 'https://chippie.unisite.co.za/login' })}
               className="rounded-xl p-2 text-sm transition-colors"
               style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}
               title="Sign out">

@@ -161,7 +161,7 @@ export default function DashboardClient({ userName, grade, gradeBand, xp, streak
         </h1>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <button onClick={() => signOut({ callbackUrl: '/login' })}
+          <button onClick={() => signOut({ callbackUrl: 'https://chippie.unisite.co.za/login' })}
             className="rounded-xl p-2 text-sm"
             style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}>
             ↩
