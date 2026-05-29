@@ -16,6 +16,8 @@ export default async function SubjectPage({ params }: Props) {
     include: {
       materials: { where: { isActive: true }, orderBy: { createdAt: 'desc' } },
       practiceTests: { orderBy: { createdAt: 'desc' }, take: 20 },
+      flashcards: { orderBy: { createdAt: 'desc' } },
+      weakSpots: { where: { userId: session.user.id }, orderBy: { timesWrong: 'desc' } },
     },
   })
   if (!subject) notFound()

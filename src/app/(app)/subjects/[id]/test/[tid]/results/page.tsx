@@ -5,12 +5,12 @@ import ScoreScreen from './ScoreScreen'
 
 interface Props {
   params: Promise<{ id: string; tid: string }>
-  searchParams: Promise<{ attempt?: string }>
+  searchParams: Promise<{ attempt?: string; xp?: string; badges?: string }>
 }
 
 export default async function ResultsPage({ params, searchParams }: Props) {
   const { id, tid } = await params
-  const { attempt: attemptId } = await searchParams
+  const { attempt: attemptId, xp, badges } = await searchParams
   const session = await requireSession()
 
   if (!attemptId) notFound()
@@ -22,5 +22,13 @@ export default async function ResultsPage({ params, searchParams }: Props) {
   ])
   if (!subject || !test || !attempt) notFound()
 
-  return <ScoreScreen subject={subject} test={test} attempt={attempt} />
+  return (
+    <ScoreScreen
+      subject={subject}
+      test={test}
+      attempt={attempt}
+      xpEarned={xp ? parseInt(xp, 10) : 0}
+      newBadges={badges ? badges.split(',').filter(Boolean) : []}
+    />
+  )
 }

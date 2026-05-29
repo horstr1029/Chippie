@@ -5,10 +5,17 @@ import { getGradeBand } from '@/lib/quotes'
 
 export default async function ProfilePage() {
   const session = await requireSession()
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { name: true, email: true, grade: true, xpPoints: true, streakDays: true, role: true, createdAt: true },
-  })
+  const [user, userBadges] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { name: true, email: true, grade: true, xpPoints: true, streakDays: true, role: true, createdAt: true },
+    }),
+    prisma.userBadge.findMany({
+      where: { userId: session.user.id },
+      include: { badge: true },
+      orderBy: { earnedAt: 'desc' },
+    }),
+  ])
   if (!user) return null
 
   const gradeBand = getGradeBand(user.grade)
@@ -48,6 +55,35 @@ export default async function ProfilePage() {
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Badges */}
+        <div className="space-y-3">
+          <h2 className="font-semibold text-sm" style={{ color: 'var(--text-muted)' }}>
+            BADGES {userBadges.length > 0 && `· ${userBadges.length} earned`}
+          </h2>
+          {userBadges.length === 0 ? (
+            <div className="rounded-2xl border p-6 text-center"
+              style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+              <p className="text-3xl mb-2">🏅</p>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                Complete tests and build streaks to earn badges.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {userBadges.map(ub => (
+                <div key={ub.id} className="rounded-2xl border p-4 flex items-center gap-3"
+                  style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+                  <span className="text-2xl">{ub.badge.iconEmoji}</span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate" style={{ color: 'var(--text)' }}>{ub.badge.name}</p>
+                    <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>{ub.badge.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Details */}

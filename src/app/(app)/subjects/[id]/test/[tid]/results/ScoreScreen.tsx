@@ -48,7 +48,7 @@ function AnswerReview({
   const isCorrect = isObjective
     ? answer?.toLowerCase().trim() === question.correctAnswer?.toLowerCase().trim()
       || answer?.toLowerCase().trim().startsWith(question.correctAnswer?.toLowerCase().trim().charAt(0))
-    : null // open-ended: no auto-marking
+    : null
 
   const borderColor = isCorrect === true ? '#A8FF3E' : isCorrect === false ? '#FF5C5C' : 'var(--border)'
   const bgColor = isCorrect === true ? '#A8FF3E11' : isCorrect === false ? '#FF5C5C11' : 'var(--surface)'
@@ -74,7 +74,6 @@ function AnswerReview({
         </div>
       </div>
 
-      {/* Learner's answer */}
       {answer && (
         <div className="rounded-xl px-3 py-2 text-sm"
           style={{ background: 'var(--surface-raised)', color: 'var(--text-muted)' }}>
@@ -85,7 +84,6 @@ function AnswerReview({
         <p className="text-xs italic" style={{ color: 'var(--text-muted)' }}>Not answered</p>
       )}
 
-      {/* Correct answer */}
       {(isCorrect === false || !answer) && (
         <div className="rounded-xl px-3 py-2 text-sm"
           style={{ background: '#A8FF3E11', color: '#A8FF3E' }}>
@@ -93,7 +91,6 @@ function AnswerReview({
         </div>
       )}
 
-      {/* Model answer toggle */}
       <button onClick={() => setShowExplanation(v => !v)}
         className="text-xs font-medium"
         style={{ color: 'var(--text-muted)' }}>
@@ -113,10 +110,14 @@ export default function ScoreScreen({
   subject,
   test,
   attempt,
+  xpEarned,
+  newBadges,
 }: {
   subject: Subject
   test: PracticeTest
   attempt: TestAttempt
+  xpEarned: number
+  newBadges: string[]
 }) {
   const pct = test.totalMarks > 0 ? Math.round((attempt.score / test.totalMarks) * 100) : 0
   const displayScore = useCountUp(attempt.score)
@@ -148,9 +149,31 @@ export default function ScoreScreen({
         </div>
 
         {attempt.personalBest && (
-          <div className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold"
+          <div className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold mb-3"
             style={{ background: '#FFB83022', color: 'var(--secondary)' }}>
             ⭐ Personal best!
+          </div>
+        )}
+
+        {/* XP + badges reward */}
+        {(xpEarned > 0 || newBadges.length > 0) && (
+          <div className="flex flex-col items-center gap-2 mt-3">
+            {xpEarned > 0 && (
+              <div className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold"
+                style={{ background: '#A8FF3E22', color: '#A8FF3E' }}>
+                +{xpEarned} XP earned
+              </div>
+            )}
+            {newBadges.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                {newBadges.map((emoji, i) => (
+                  <div key={i} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold"
+                    style={{ background: '#FFB83022', color: '#FFB830' }}>
+                    {emoji} New badge!
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

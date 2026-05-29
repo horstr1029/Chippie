@@ -2,10 +2,14 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireSession } from '@/lib/session'
-import { generateTest, type Difficulty } from '@/lib/ai'
+import { generateTest, type Difficulty, type Question } from '@/lib/ai'
+import { checkAndAwardBadges } from '@/lib/badges'
 import { redirect } from 'next/navigation'
+
 type PrismaDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'BOSS'
 type Language = 'EN' | 'AF'
+
+const XP_BY_DIFFICULTY: Record<PrismaDifficulty, number> = { EASY: 15, MEDIUM: 25, HARD: 40, BOSS: 60 }
 
 export async function createTest(params: {
   subjectId: string
@@ -66,28 +70,35 @@ export async function submitTest(params: {
 }) {
   const session = await requireSession()
 
-  const test = await prisma.practiceTest.findFirst({
-    where: { id: params.testId, subjectId: params.subjectId },
-  })
+  const [test, user] = await Promise.all([
+    prisma.practiceTest.findFirst({ where: { id: params.testId, subjectId: params.subjectId } }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { xpPoints: true, streakDays: true, lastActive: true },
+    }),
+  ])
   if (!test) throw new Error('Test not found')
+  if (!user) throw new Error('User not found')
 
-  const questions = test.questionsJson as any[]
+  const questions = test.questionsJson as unknown as Question[]
   let score = 0
+  const wrongTopics: string[] = []
 
   for (const q of questions) {
     const answer = params.answers[q.id]
-    if (!answer) continue
-    if (q.type === 'multiple_choice' || q.type === 'true_false') {
+    const isObjective = q.type === 'multiple_choice' || q.type === 'true_false'
+
+    if (isObjective) {
       const correct = q.correctAnswer?.toLowerCase().trim()
-      const given = answer.toLowerCase().trim()
-      if (given === correct || given.startsWith(correct.charAt(0))) {
+      const given = answer?.toLowerCase().trim() ?? ''
+      if (given && (given === correct || given.startsWith(correct.charAt(0)))) {
         score += q.marks
+      } else {
+        if (q.topic) wrongTopics.push(q.topic)
       }
     }
-    // Open-ended questions are marked 0 by default (self-assessment)
   }
 
-  // Check personal best
   const prevBest = await prisma.testAttempt.findFirst({
     where: { userId: session.user.id, practiceTest: { subjectId: params.subjectId } },
     orderBy: { score: 'desc' },
@@ -106,5 +117,54 @@ export async function submitTest(params: {
     },
   })
 
-  redirect(`/subjects/${params.subjectId}/test/${params.testId}/results?attempt=${attempt.id}`)
+  // ── XP ────────────────────────────────────────────────────────────────────
+  const pct = test.totalMarks > 0 ? score / test.totalMarks : 0
+  const base = XP_BY_DIFFICULTY[test.difficulty as PrismaDifficulty] ?? 20
+  let xpEarned = Math.max(5, Math.round(base * pct))
+  if (isPersonalBest) xpEarned += 10
+
+  // ── Streak ────────────────────────────────────────────────────────────────
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const lastStr = user.lastActive?.toISOString().slice(0, 10)
+  const yestStr = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+
+  let newStreak = user.streakDays
+  if (lastStr !== todayStr) {
+    newStreak = lastStr === yestStr ? user.streakDays + 1 : 1
+  }
+
+  // ── Badges ────────────────────────────────────────────────────────────────
+  const testsCompleted = await prisma.testAttempt.count({ where: { userId: session.user.id } })
+  const isPerfect = test.totalMarks > 0 && score === test.totalMarks
+  const newBadges = await checkAndAwardBadges(session.user.id, {
+    newXp: user.xpPoints + xpEarned,
+    newStreak,
+    testsCompleted,
+    perfectScore: isPerfect,
+    bossAttempted: test.difficulty === 'BOSS',
+  })
+
+  const badgeXp = newBadges.reduce((sum, b) => sum + b.xpReward, 0)
+  const totalXpEarned = xpEarned + badgeXp
+
+  // ── Persist ───────────────────────────────────────────────────────────────
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { xpPoints: { increment: totalXpEarned }, streakDays: newStreak, lastActive: new Date() },
+  })
+
+  const uniqueTopics = [...new Set(wrongTopics)]
+  for (const topic of uniqueTopics) {
+    await prisma.weakSpot.upsert({
+      where: { userId_subjectId_topic: { userId: session.user.id, subjectId: params.subjectId, topic } },
+      update: { timesWrong: { increment: 1 }, lastFlaggedAt: new Date() },
+      create: { userId: session.user.id, subjectId: params.subjectId, topic },
+    })
+  }
+
+  const sp = new URLSearchParams({ attempt: attempt.id, xp: String(totalXpEarned) })
+  const badgeEmojis = newBadges.map(b => b.iconEmoji).join(',')
+  if (badgeEmojis) sp.set('badges', badgeEmojis)
+
+  redirect(`/subjects/${params.subjectId}/test/${params.testId}/results?${sp}`)
 }
