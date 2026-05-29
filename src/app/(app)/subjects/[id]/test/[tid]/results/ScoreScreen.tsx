@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import type { Subject, PracticeTest, TestAttempt } from '@prisma/client'
+type Subject = { id: string; name: string; color: string; iconEmoji: string; gradeLevel: number; language: string }
+type PracticeTest = { id: string; questionsJson: unknown; difficulty: string; totalMarks: number }
+type TestAttempt = { id: string; score: number; totalMarks: number; personalBest: boolean; completedAt: Date; timeTakenSeconds: number | null; answersJson: unknown }
 import type { Question } from '@/lib/ai'
 
 function useCountUp(target: number, duration = 1200) {

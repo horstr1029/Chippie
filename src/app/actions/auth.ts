@@ -2,7 +2,7 @@
 
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { Role } from '@prisma/client'
+type Role = 'LEARNER' | 'TEACHER' | 'PARENT' | 'ADMIN'
 
 interface RegisterResult {
   error?: string

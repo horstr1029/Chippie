@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { requireSession } from '@/lib/session'
-import { Language } from '@prisma/client'
+type Language = 'EN' | 'AF'
 
 export interface CreateSubjectInput {
   name: string

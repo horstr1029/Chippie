@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { requireSession } from '@/lib/session'
 import { generateTest, type Difficulty } from '@/lib/ai'
 import { redirect } from 'next/navigation'
-import type { Difficulty as PrismaDifficulty, Language } from '@prisma/client'
+type PrismaDifficulty = 'EASY' | 'MEDIUM' | 'HARD' | 'BOSS'
+type Language = 'EN' | 'AF'
 
 export async function createTest(params: {
   subjectId: string

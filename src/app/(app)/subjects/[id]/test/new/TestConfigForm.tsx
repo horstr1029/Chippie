@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { createTest } from '@/app/actions/tests'
-import type { Subject, Material } from '@prisma/client'
+type Subject = { id: string; name: string; color: string; iconEmoji: string; gradeLevel: number; language: string }
+type Material = { id: string; type: string; filename: string | null; extractedText: string | null }
 import type { Difficulty } from '@/lib/ai'
 
 const DIFFICULTIES: { value: Difficulty; label: string; desc: string; emoji: string }[] = [
