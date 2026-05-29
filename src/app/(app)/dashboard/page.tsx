@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import type { Subject } from '@prisma/client'
 import { requireSession } from '@/lib/session'
 import { getDailyQuote, getGradeBand } from '@/lib/quotes'
 import DashboardClient from './DashboardClient'
@@ -23,7 +22,7 @@ export default async function DashboardPage() {
   // Per-subject average score
   type AttemptRow = { score: number; totalMarks: number; practiceTest: { subjectId: string } }
 
-  const subjectIds = subjects.map((s: Subject) => s.id)
+  const subjectIds = subjects.map((s) => s.id)
   const attempts = await prisma.testAttempt.findMany({
     where: {
       userId: session.user.id,
