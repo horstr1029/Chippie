@@ -5,7 +5,11 @@ import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/session'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? './uploads'
-const MAX_FILE_SIZE = 20 * 1024 * 1024 // 20 MB
+const MAX_FILE_SIZE = 200 * 1024 * 1024 // 200 MB (covers video)
+
+const PDF_EXTS = new Set(['.pdf'])
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.webm'])
 
 export async function POST(request: NextRequest) {
   const session = await getSession()
@@ -14,37 +18,30 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const subjectId = formData.get('subjectId') as string
   const file = formData.get('file') as File | null
-  const videoUrl = formData.get('videoUrl') as string | null
-  const videoTimestamps = formData.get('videoTimestamps') as string | null
 
   if (!subjectId) return NextResponse.json({ error: 'subjectId required' }, { status: 400 })
+  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-  // Verify subject belongs to user
   const subject = await prisma.subject.findFirst({
     where: { id: subjectId, userId: session.user.id },
   })
   if (!subject) return NextResponse.json({ error: 'Subject not found' }, { status: 404 })
 
-  // Video link
-  if (videoUrl) {
-    const material = await prisma.material.create({
-      data: {
-        subjectId,
-        type: 'VIDEO',
-        videoUrl,
-        videoTimestampsJson: videoTimestamps ? JSON.parse(videoTimestamps) : null,
-      },
-    })
-    return NextResponse.json({ materialId: material.id })
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: 'File too large (max 200 MB)' }, { status: 400 })
   }
 
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: 'File too large (max 20 MB)' }, { status: 400 })
-
   const ext = path.extname(file.name).toLowerCase()
-  const isPdf = ext === '.pdf'
-  const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)
-  if (!isPdf && !isImage) return NextResponse.json({ error: 'Only PDF and image files are supported' }, { status: 400 })
+  const isPdf = PDF_EXTS.has(ext)
+  const isImage = IMAGE_EXTS.has(ext)
+  const isVideo = VIDEO_EXTS.has(ext)
+
+  if (!isPdf && !isImage && !isVideo) {
+    return NextResponse.json(
+      { error: 'Unsupported file type. Upload a PDF, image, or MP4/MOV/WebM video.' },
+      { status: 400 }
+    )
+  }
 
   // Save to disk
   const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), UPLOAD_DIR, subjectId)
@@ -53,6 +50,8 @@ export async function POST(request: NextRequest) {
   const filePath = path.join(dir, filename)
   const buffer = Buffer.from(await file.arrayBuffer())
   await writeFile(filePath, buffer)
+
+  const relativePath = path.relative(/*turbopackIgnore: true*/ process.cwd(), filePath)
 
   // Extract text from PDF
   let extractedText: string | null = null
@@ -63,16 +62,18 @@ export async function POST(request: NextRequest) {
       const result = await parser.getText()
       extractedText = result.text
     } catch {
-      // PDF parse failure is non-fatal — test generation will note limited text
+      // Non-fatal — test generation will note limited text
     }
   }
+
+  const materialType = isPdf ? 'PDF' : isImage ? 'IMAGE' : 'VIDEO'
 
   const material = await prisma.material.create({
     data: {
       subjectId,
-      type: isPdf ? 'PDF' : 'IMAGE',
+      type: materialType,
       filename: file.name,
-      filePath: path.relative(/*turbopackIgnore: true*/ process.cwd(), filePath),
+      filePath: relativePath,
       extractedText,
     },
   })
