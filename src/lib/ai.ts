@@ -3,16 +3,12 @@ const API_KEY = process.env.OPENWEBUI_API_KEY ?? ''
 const CF_ID = process.env.CF_ACCESS_CLIENT_ID ?? ''
 const CF_SECRET = process.env.CF_ACCESS_CLIENT_SECRET ?? ''
 const MODEL = process.env.OPENWEBUI_MODEL ?? 'llama3.1:8b-instruct-q8_0'
+const VISION_MODEL = process.env.OPENWEBUI_VISION_MODEL ?? 'llama3.2-vision:11b'
 
 async function chat(prompt: string, temperature = 0.3): Promise<string> {
   const res = await fetch(`${BASE_URL}/ollama/api/chat`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(API_KEY && { Authorization: `Bearer ${API_KEY}` }),
-      ...(CF_ID && { 'CF-Access-Client-Id': CF_ID }),
-      ...(CF_SECRET && { 'CF-Access-Client-Secret': CF_SECRET }),
-    },
+    headers: authHeaders(),
     body: JSON.stringify({
       model: MODEL,
       messages: [{ role: 'user', content: prompt }],
@@ -28,6 +24,40 @@ async function chat(prompt: string, temperature = 0.3): Promise<string> {
 
   const data = await res.json() as { message?: { content?: string } }
   return data.message?.content ?? ''
+}
+
+function authHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    ...(API_KEY && { Authorization: `Bearer ${API_KEY}` }),
+    ...(CF_ID && { 'CF-Access-Client-Id': CF_ID }),
+    ...(CF_SECRET && { 'CF-Access-Client-Secret': CF_SECRET }),
+  }
+}
+
+export async function extractTextFromImages(base64Images: string[]): Promise<string> {
+  const results: string[] = []
+  for (let i = 0; i < base64Images.length; i++) {
+    const res = await fetch(`${BASE_URL}/ollama/api/chat`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        messages: [{
+          role: 'user',
+          content: `This is page ${i + 1} of a study document. Extract ALL text exactly as it appears — headings, bullet points, body text, labels, captions. Do not summarise. Output only the extracted text.`,
+          images: [base64Images[i]],
+        }],
+        stream: false,
+        options: { temperature: 0 },
+      }),
+    })
+    if (!res.ok) throw new Error(`Vision request failed (${res.status})`)
+    const data = await res.json() as { message?: { content?: string } }
+    const text = data.message?.content?.trim() ?? ''
+    if (text) results.push(text)
+  }
+  return results.join('\n\n---\n\n')
 }
 
 export type QuestionType =
