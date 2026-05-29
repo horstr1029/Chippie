@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
   if (!isPdf && !isImage) return NextResponse.json({ error: 'Only PDF and image files are supported' }, { status: 400 })
 
   // Save to disk
-  const dir = path.join(process.cwd(), UPLOAD_DIR, subjectId)
+  const dir = path.join(/*turbopackIgnore: true*/ process.cwd(), UPLOAD_DIR, subjectId)
   await mkdir(dir, { recursive: true })
   const filename = `${Date.now()}-${file.name.replace(/[^a-z0-9._-]/gi, '_')}`
   const filePath = path.join(dir, filename)
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       subjectId,
       type: isPdf ? 'PDF' : 'IMAGE',
       filename: file.name,
-      filePath: path.relative(process.cwd(), filePath),
+      filePath: path.relative(/*turbopackIgnore: true*/ process.cwd(), filePath),
       extractedText,
     },
   })
