@@ -2,9 +2,30 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import type { Subject, Material, PracticeTest } from '@prisma/client'
+type Material = {
+  id: string
+  type: string
+  filename: string | null
+  videoUrl: string | null
+  extractedText: string | null
+  createdAt: Date
+}
 
-type SubjectWithRelations = Subject & {
+type PracticeTest = {
+  id: string
+  difficulty: string
+  totalMarks: number
+  createdAt: Date
+}
+
+type SubjectWithRelations = {
+  id: string
+  name: string
+  color: string
+  iconEmoji: string
+  language: string
+  gradeLevel: number
+  examDate: Date | null
   materials: Material[]
   practiceTests: PracticeTest[]
 }
