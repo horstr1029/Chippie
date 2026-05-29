@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useTransition } from 'react'
-import type { Subject, PracticeTest } from '@prisma/client'
+type Subject = { id: string; name: string; color: string; iconEmoji: string; gradeLevel: number; language: string }
+type PracticeTest = { id: string; questionsJson: unknown; difficulty: string; totalMarks: number }
 import type { Question } from '@/lib/ai'
 import { submitTest } from '@/app/actions/tests'
 
