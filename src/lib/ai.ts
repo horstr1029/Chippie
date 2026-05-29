@@ -36,27 +36,43 @@ function authHeaders() {
 }
 
 export async function extractTextFromImages(base64Images: string[]): Promise<string> {
+  // Cap pages to avoid very long processing times
+  const pages = base64Images.slice(0, 8)
   const results: string[] = []
-  for (let i = 0; i < base64Images.length; i++) {
-    const res = await fetch(`${BASE_URL}/ollama/api/chat`, {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({
-        model: VISION_MODEL,
-        messages: [{
-          role: 'user',
-          content: `This is page ${i + 1} of a study document. Extract ALL text exactly as it appears — headings, bullet points, body text, labels, captions. Do not summarise. Output only the extracted text.`,
-          images: [base64Images[i]],
-        }],
-        stream: false,
-        options: { temperature: 0 },
-      }),
-    })
-    if (!res.ok) throw new Error(`Vision request failed (${res.status})`)
-    const data = await res.json() as { message?: { content?: string } }
-    const text = data.message?.content?.trim() ?? ''
-    if (text) results.push(text)
+
+  for (let i = 0; i < pages.length; i++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 80_000) // 80s per page
+    try {
+      const res = await fetch(`${BASE_URL}/ollama/api/chat`, {
+        method: 'POST',
+        headers: authHeaders(),
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: VISION_MODEL,
+          messages: [{
+            role: 'user',
+            content: `Page ${i + 1}: Extract ALL text exactly as it appears. Include headings, bullets, body text, labels. No summaries — output the raw text only.`,
+            images: [pages[i]],
+          }],
+          stream: false,
+          options: { temperature: 0 },
+        }),
+      })
+      if (!res.ok) {
+        console.error(`[vision] page ${i + 1} failed with status ${res.status}`)
+        continue
+      }
+      const data = await res.json() as { message?: { content?: string } }
+      const text = data.message?.content?.trim() ?? ''
+      if (text) results.push(text)
+    } catch (err) {
+      console.error(`[vision] page ${i + 1} error:`, (err as Error).message)
+    } finally {
+      clearTimeout(timeout)
+    }
   }
+
   return results.join('\n\n---\n\n')
 }
 

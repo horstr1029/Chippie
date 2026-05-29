@@ -21,7 +21,7 @@ async function pdfToBase64Images(pdfPath: string): Promise<string[]> {
   const outPrefix = path.join(tmpdir(), `chippie-${Date.now()}`)
   try {
     // pdftoppm renders each page as a PPM file; -r 150 = 150 dpi (good balance of quality/size)
-    await execFileAsync('pdftoppm', ['-r', '150', '-png', pdfPath, outPrefix])
+    await execFileAsync('pdftoppm', ['-r', '100', '-png', pdfPath, outPrefix])
   } catch (err) {
     throw new Error(`pdftoppm failed: ${(err as Error).message}`)
   }
