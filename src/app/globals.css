@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
+/* ── Chippie Design Tokens ──────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Dark theme — "Jungle Night" (default) */
+  --bg:           #0F1F1A;
+  --surface:      #162D26;
+  --surface-raised: #1E3830;
+  --primary:      #A8FF3E;
+  --secondary:    #FFB830;
+  --highlight:    #FF5C5C;
+  --text:         #F0EDE6;
+  --text-muted:   #7A9E8E;
+  --border:       #2A4A3E;
+}
+
+[data-theme="light"] {
+  /* Light theme — "Jungle Day" */
+  --bg:           #F5F0E8;
+  --surface:      #FFFFFF;
+  --surface-raised: #F0EBE0;
+  --primary:      #1A6B4A;
+  --secondary:    #FFB830;
+  --highlight:    #FF5C5C;
+  --text:         #1A1A1A;
+  --text-muted:   #6B7B74;
+  --border:       #E0D8CC;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg:            var(--bg);
+  --color-surface:       var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-primary:       var(--primary);
+  --color-secondary:     var(--secondary);
+  --color-highlight:     var(--highlight);
+  --color-text:          var(--text);
+  --color-text-muted:    var(--text-muted);
+  --color-border:        var(--border);
+
+  --font-display: var(--font-fredoka);
+  --font-body:    var(--font-dm-sans);
+  --font-chippie: var(--font-caveat);
+  --font-mono:    var(--font-dm-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base ───────────────────────────────────────────────────────── */
+
+html {
+  color-scheme: dark;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100dvh;
+}
+
+/* ── Grade-aware scaling ────────────────────────────────────────── */
+
+[data-grade-band="junior"] { font-size: 18px; }
+[data-grade-band="middle"] { font-size: 16px; }
+[data-grade-band="senior"] { font-size: 15px; }
+
+/* ── Reduced motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

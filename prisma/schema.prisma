@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  LEARNER
+  PARENT
+  TEACHER
+  ADMIN
+}
+
+enum Theme {
+  DARK
+  LIGHT
+}
+
+enum Language {
+  EN
+  AF
+}
+
+enum MaterialType {
+  PDF
+  IMAGE
+  VIDEO
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  BOSS
+}
+
+enum GradeBand {
+  JUNIOR
+  MIDDLE
+  SENIOR
+}
+
+enum QuoteContext {
+  DASHBOARD
+  PRE_TEST
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String?
+  role         Role      @default(LEARNER)
+  grade        Int?
+  avatarId     String?
+  xpPoints     Int       @default(0)
+  streakDays   Int       @default(0)
+  theme        Theme     @default(DARK)
+  ttsEnabled   Boolean   @default(false)
+  lastActive   DateTime?
+  createdAt    DateTime  @default(now())
+
+  avatar           Avatar?        @relation(fields: [avatarId], references: [id])
+  subjects         Subject[]
+  classMemberships ClassMember[]
+  taughtClasses    Class[]        @relation("TeacherClasses")
+  testAttempts     TestAttempt[]
+  savedNotes       SavedNote[]
+  userBadges       UserBadge[]
+  weakSpots        WeakSpot[]
+  notifications    Notification[]
+}
+
+// ─── Classes ──────────────────────────────────────────────────────────────────
+
+model Class {
+  id         String   @id @default(cuid())
+  teacherId  String
+  name       String
+  gradeLevel Int
+  joinCode   String   @unique
+  createdAt  DateTime @default(now())
+
+  teacher  User          @relation("TeacherClasses", fields: [teacherId], references: [id])
+  members  ClassMember[]
+  subjects Subject[]
+}
+
+model ClassMember {
+  id        String   @id @default(cuid())
+  classId   String
+  learnerId String
+  joinedAt  DateTime @default(now())
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  learner User  @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, learnerId])
+}
+
+// ─── Subjects ─────────────────────────────────────────────────────────────────
+
+model Subject {
+  id         String    @id @default(cuid())
+  userId     String
+  classId    String?
+  name       String
+  color      String
+  iconEmoji  String
+  language   Language  @default(EN)
+  gradeLevel Int
+  examDate   DateTime?
+  createdAt  DateTime  @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class         Class?         @relation(fields: [classId], references: [id])
+  materials     Material[]
+  practiceTests PracticeTest[]
+  flashcards    Flashcard[]
+  savedNotes    SavedNote[]
+  weakSpots     WeakSpot[]
+}
+
+// ─── Materials ────────────────────────────────────────────────────────────────
+
+model Material {
+  id                  String       @id @default(cuid())
+  subjectId           String
+  type                MaterialType
+  filename            String?
+  filePath            String?
+  videoUrl            String?
+  videoTimestampsJson Json?
+  extractedText       String?
+  version             Int          @default(1)
+  isActive            Boolean      @default(true)
+  createdAt           DateTime     @default(now())
+
+  subject    Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  flashcards Flashcard[]
+  savedNotes SavedNote[]
+}
+
+// ─── Practice Tests ───────────────────────────────────────────────────────────
+
+model PracticeTest {
+  id            String     @id @default(cuid())
+  subjectId     String
+  materialIds   String[]
+  questionsJson Json
+  language      Language   @default(EN)
+  difficulty    Difficulty @default(MEDIUM)
+  totalMarks    Int
+  isBossTest    Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+
+  subject  Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  attempts TestAttempt[]
+}
+
+// ─── Test Attempts ────────────────────────────────────────────────────────────
+
+model TestAttempt {
+  id               String   @id @default(cuid())
+  practiceTestId   String
+  userId           String
+  answersJson      Json
+  score            Int
+  totalMarks       Int
+  timeTakenSeconds Int?
+  personalBest     Boolean  @default(false)
+  completedAt      DateTime @default(now())
+
+  practiceTest PracticeTest @relation(fields: [practiceTestId], references: [id])
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Flashcards ───────────────────────────────────────────────────────────────
+
+model Flashcard {
+  id             String    @id @default(cuid())
+  subjectId      String
+  materialId     String?
+  frontText      String
+  backText       String
+  timesSeen      Int       @default(0)
+  timesCorrect   Int       @default(0)
+  nextReviewDate DateTime?
+  createdAt      DateTime  @default(now())
+
+  subject  Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id])
+}
+
+// ─── Saved Notes ──────────────────────────────────────────────────────────────
+
+model SavedNote {
+  id               String   @id @default(cuid())
+  userId           String
+  subjectId        String
+  highlightedText  String
+  sourceMaterialId String?
+  createdAt        DateTime @default(now())
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject        Subject   @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  sourceMaterial Material? @relation(fields: [sourceMaterialId], references: [id])
+}
+
+// ─── Badges ───────────────────────────────────────────────────────────────────
+
+model Badge {
+  id             String @id @default(cuid())
+  name           String @unique
+  description    String
+  iconEmoji      String
+  xpReward       Int
+  conditionType  String
+  conditionValue Int
+
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+}
+
+// ─── Avatars ──────────────────────────────────────────────────────────────────
+
+model Avatar {
+  id                 String @id @default(cuid())
+  tier               Int    @unique
+  name               String
+  imageUrl           String
+  xpRequiredToUnlock Int
+
+  users User[]
+}
+
+// ─── Weak Spots ───────────────────────────────────────────────────────────────
+
+model WeakSpot {
+  id            String   @id @default(cuid())
+  userId        String
+  subjectId     String
+  topic         String
+  timesWrong    Int      @default(1)
+  lastFlaggedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, subjectId, topic])
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id           String    @id @default(cuid())
+  userId       String
+  type         String
+  message      String
+  isRead       Boolean   @default(false)
+  scheduledFor DateTime?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Quotes ───────────────────────────────────────────────────────────────────
+
+model Quote {
+  id        String       @id @default(cuid())
+  text      String
+  language  Language     @default(EN)
+  gradeBand GradeBand
+  context   QuoteContext
+}
