@@ -20,7 +20,7 @@ export default async function DashboardPage() {
   })
 
   // Per-subject average score
-  const subjectIds = subjects.map(s => s.id)
+  const subjectIds = subjects.map((s: { id: string }) => s.id)
   const attempts = await prisma.testAttempt.findMany({
     where: {
       userId: session.user.id,
