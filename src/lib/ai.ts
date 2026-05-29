@@ -1,11 +1,34 @@
-import OpenAI from 'openai'
+const BASE_URL = (process.env.OPENWEBUI_BASE_URL ?? 'https://mst.gloworm.org.za').replace(/\/$/, '')
+const API_KEY = process.env.OPENWEBUI_API_KEY ?? ''
+const CF_ID = process.env.CF_ACCESS_CLIENT_ID ?? ''
+const CF_SECRET = process.env.CF_ACCESS_CLIENT_SECRET ?? ''
+const MODEL = process.env.OPENWEBUI_MODEL ?? 'llama3.1:8b-instruct-q8_0'
 
-const client = new OpenAI({
-  baseURL: process.env.OPENWEBUI_BASE_URL ?? 'https://mst.gloworm.org.za/api',
-  apiKey: process.env.OPENWEBUI_API_KEY ?? 'placeholder',
-})
+async function chat(prompt: string, temperature = 0.3): Promise<string> {
+  const res = await fetch(`${BASE_URL}/ollama/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(API_KEY && { Authorization: `Bearer ${API_KEY}` }),
+      ...(CF_ID && { 'CF-Access-Client-Id': CF_ID }),
+      ...(CF_SECRET && { 'CF-Access-Client-Secret': CF_SECRET }),
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      stream: false,
+      options: { temperature },
+    }),
+  })
 
-const MODEL = process.env.OPENWEBUI_MODEL ?? 'qwen2.5:latest'
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`AI request failed (${res.status}): ${text}`)
+  }
+
+  const data = await res.json() as { message?: { content?: string } }
+  return data.message?.content ?? ''
+}
 
 export type QuestionType =
   | 'multiple_choice'
@@ -24,9 +47,9 @@ export interface Question {
   type: QuestionType
   question: string
   marks: number
-  options?: string[]           // MCQ only
+  options?: string[]
   correctAnswer: string
-  modelAnswer: string          // full SA-style answer
+  modelAnswer: string
   topic: string
 }
 
@@ -89,25 +112,14 @@ Return a JSON object with this exact structure (no markdown, no explanation — 
 
 For non-MCQ questions, omit the "options" field. The "totalMarks" should be the sum of all question marks.`
 
-  const response = await client.chat.completions.create({
-    model: MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.3,
-  })
-
-  const raw = response.choices[0]?.message?.content ?? ''
+  const raw = await chat(prompt, 0.3)
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('AI returned no valid JSON')
 
   const parsed = JSON.parse(jsonMatch[0]) as { questions: Question[]; totalMarks: number }
   const totalMarks = parsed.questions.reduce((sum, q) => sum + q.marks, 0)
 
-  return {
-    questions: parsed.questions,
-    totalMarks,
-    language,
-    difficulty,
-  }
+  return { questions: parsed.questions, totalMarks, language, difficulty }
 }
 
 export async function explainAnswer(params: {
@@ -135,11 +147,5 @@ ${sourceText.slice(0, 3000)}
 
 Give a short (2–4 sentence) explanation. Be encouraging, not harsh.`
 
-  const response = await client.chat.completions.create({
-    model: MODEL,
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.5,
-  })
-
-  return response.choices[0]?.message?.content ?? correctAnswer
+  return chat(prompt, 0.5)
 }
