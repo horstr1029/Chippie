@@ -20,7 +20,9 @@ export default async function DashboardPage() {
   })
 
   // Per-subject average score
-  const subjectIds = subjects.map((s: { id: string }) => s.id)
+  type AttemptRow = { score: number; totalMarks: number; practiceTest: { subjectId: string } }
+
+  const subjectIds = subjects.map((s) => s.id)
   const attempts = await prisma.testAttempt.findMany({
     where: {
       userId: session.user.id,
@@ -31,16 +33,16 @@ export default async function DashboardPage() {
 
   const avgBySubject: Record<string, number> = {}
   for (const subjectId of subjectIds) {
-    const subAttempts = attempts.filter(a => a.practiceTest.subjectId === subjectId)
+    const subAttempts = attempts.filter((a: AttemptRow) => a.practiceTest.subjectId === subjectId)
     if (subAttempts.length) {
-      const totalScore = subAttempts.reduce((s, a) => s + a.score, 0)
-      const totalMarks = subAttempts.reduce((s, a) => s + a.totalMarks, 0)
+      const totalScore = subAttempts.reduce((acc: number, a: AttemptRow) => acc + a.score, 0)
+      const totalMarks = subAttempts.reduce((acc: number, a: AttemptRow) => acc + a.totalMarks, 0)
       avgBySubject[subjectId] = totalMarks > 0 ? Math.round((totalScore / totalMarks) * 100) : 0
     }
   }
 
   // Detect dominant language from subjects
-  const afCount = subjects.filter(s => s.language === 'AF').length
+  const afCount = subjects.filter((s) => s.language === 'AF').length
   const lang = afCount > subjects.length / 2 ? 'af' : 'en'
 
   const quote = getDailyQuote(user?.grade ?? null, lang as 'en' | 'af')
